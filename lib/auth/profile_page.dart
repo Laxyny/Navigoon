@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:navigoon/api/api_usage_service.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -73,16 +73,18 @@ class ProfilePage extends StatelessWidget {
   }
 
   Widget _buildApiUsageCard(String userId) {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: ApiUsageService.getDailyUsage(userId),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data == null) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final data = snapshot.data!.data() as Map<String, dynamic>;
+        final data = snapshot.data!;
         final usage = data['apiUsage'] ?? 0;
-        final limit = data['apiLimit'] ?? 1000000;
+        final limit = data['apiLimit'] ?? 5000;
+        final dailyUsage = Map<String, dynamic>.from(data['dailyUsage'] ?? {});
+
         final percentage = (usage / limit).clamp(0.0, 1.0);
 
         return Column(
@@ -142,92 +144,91 @@ class ProfilePage extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            SizedBox(
-              height: 200,
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceBetween,
-                  maxY: (limit / 7).ceilToDouble(),
-                  barGroups: _generateBarGroups(data),
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 40,
-                        getTitlesWidget: (value, meta) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: Text('${value.toInt()}', style: const TextStyle(color: Colors.black54, fontSize: 12)),
-                          );
-                        },
-                      ),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 32,
-                        getTitlesWidget: (value, meta) {
-                          final days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Text(days[value.toInt() % days.length], style: const TextStyle(color: Colors.black54, fontSize: 12)),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  gridData: FlGridData(
-                    drawHorizontalLine: true,
-                    horizontalInterval: (limit / 28).ceilToDouble(),
-                    getDrawingHorizontalLine: (value) {
-                      return FlLine(
-                        color: Colors.grey.withOpacity(0.3),
-                        strokeWidth: 1,
-                      );
-                    },
-                  ),
-                  borderData: FlBorderData(
-                    show: true,
-                    border: Border.all(
-                      color: Colors.grey.withOpacity(0.5),
-                      width: 1,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            _buildModernWeeklyChart(dailyUsage),
           ],
         );
       },
     );
   }
 
-  List<BarChartGroupData> _generateBarGroups(Map<String, dynamic> data) {
-    final dailyUsage = data['dailyUsage'] as Map<String, dynamic>? ?? {};
+  Widget _buildModernWeeklyChart(Map<String, dynamic> dailyUsage) {
     final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final usageData = List.generate(
+      7,
+      (index) => dailyUsage[days[index]]?.toDouble() ?? 0.0,
+    );
 
-    return List.generate(7, (index) {
-      final day = days[index];
-      final usage = dailyUsage[day] ?? 0;
-
-      return BarChartGroupData(
-        x: index,
-        barRods: [
-          BarChartRodData(
-            toY: usage.toDouble(),
-            gradient: LinearGradient(
-              colors: [
-                Colors.deepPurple.withOpacity(0.7),
-                Colors.deepPurple,
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+    return SizedBox(
+      height: 200,
+      child: LineChart(
+        LineChartData(
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: true,
+            horizontalInterval: 100,
+            getDrawingHorizontalLine: (value) => FlLine(
+              color: Colors.grey.withOpacity(0.3),
+              strokeWidth: 1,
             ),
-            width: 16,
-            borderRadius: BorderRadius.circular(12),
           ),
-        ],
-      );
-    });
+          titlesData: FlTitlesData(
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 40,
+                getTitlesWidget: (value, meta) {
+                  return Text(
+                    '${value.toInt()}',
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontSize: 12,
+                    ),
+                  );
+                },
+              ),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 32,
+                getTitlesWidget: (value, meta) {
+                  final day = days[value.toInt() % days.length];
+                  return Text(
+                    day,
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontSize: 12,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: List.generate(
+                7,
+                (index) => FlSpot(index.toDouble(), usageData[index]),
+              ),
+              isCurved: true,
+              color: Colors.deepPurple,
+              barWidth: 3,
+              dotData: FlDotData(show: true),
+              belowBarData: BarAreaData(
+                show: true,
+                color: Colors.deepPurple.withOpacity(0.2),
+              ),
+            ),
+          ],
+          borderData: FlBorderData(
+            show: true,
+            border: Border.all(
+              color: Colors.grey.withOpacity(0.5),
+              width: 1,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

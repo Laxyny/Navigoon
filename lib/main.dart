@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:navigoon/api/api_usage_service.dart';
 import 'package:navigoon/auth/auth_page.dart';
 import 'package:navigoon/auth/login_page.dart';
 import 'package:navigoon/auth/profile_page.dart';
@@ -81,6 +82,10 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> updateApiUsage(int requestsMade) async {
     if (_currentUser != null) {
       final userDoc = FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid);
+      final userId = _currentUser!.uid;
+      final apiService = ApiUsageService(userId);
+
+      await apiService.updateDailyUsage(requestsMade);
 
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final snapshot = await transaction.get(userDoc);
@@ -88,7 +93,7 @@ class _MyHomePageState extends State<MyHomePage> {
         if (!snapshot.exists) {
           // Si l'utilisateur n'existe pas dans Firestore, créer le document
           transaction.set(userDoc, {
-            'apiUsage': requestsMade,
+            'apiUsage': 0,
             'apiLimit': 10000, // Exemple : limite de 100 requêtes
           });
         } else {
@@ -108,7 +113,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> fetchTrains() async {
     if (_currentUser != null) {
-      await updateApiUsage(_trains.length);
+      await updateApiUsage(1);
     }
 
     setState(() {
@@ -150,11 +155,6 @@ class _MyHomePageState extends State<MyHomePage> {
                   })
                   .where((train) => isTrainWithinRange(train['expectedTime'] ?? '', const Duration(hours: 1, minutes: 30)))
                   .toList();
-
-              // Sauvegarde la consommation dans Firestore si un utilisateur est connecté
-              /*if (_currentUser != null) {
-                updateApiUsage(_trains.length);
-              }*/
             });
           } else {
             print('No departures found');
