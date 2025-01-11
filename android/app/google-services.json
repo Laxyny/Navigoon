@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "849608153051",
+    "project_id": "navigoon-f4727",
+    "storage_bucket": "navigoon-f4727.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:849608153051:android:502fb42b50bb9bc8e439fe",
+        "android_client_info": {
+          "package_name": "com.laxyny.navigoon"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "849608153051-3fr93k2a37i27g0gbfcn3h92ejvu7fph.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDPos1fIKm5D3vc14XB-Ul8zxBmJvuaIvo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "849608153051-3fr93k2a37i27g0gbfcn3h92ejvu7fph.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

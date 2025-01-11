@@ -3,8 +3,16 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:navigoon/auth/auth_page.dart';
+import 'package:navigoon/auth/login_page.dart';
+import 'package:navigoon/auth/profile_page.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -19,6 +27,11 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
       ),
       home: const MyHomePage(title: 'Trains en temps réel'),
+      routes: {
+        '/auth': (context) => const AuthPage(),
+        '/login': (context) => const LoginPage(),
+        '/profile': (context) => const ProfilePage(),
+      },
     );
   }
 }
@@ -32,41 +45,11 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-// Fonctions de formatage
-String formatTime(String time) {
-  try {
-    final dateTime = DateTime.parse(time).toLocal();
-    return DateFormat('HH:mm').format(dateTime);
-  } catch (e) {
-    return "Inconnu";
-  }
-}
-
-bool isFutureTrain(String time) {
-  try {
-    final trainTime = DateTime.parse(time).toLocal();
-    final now = DateTime.now();
-    return trainTime.isAfter(now);
-  } catch (e) {
-    return false;
-  }
-}
-
-bool isTrainWithinRange(String time, Duration range) {
-  try {
-    final trainTime = DateTime.parse(time).toLocal();
-    final now = DateTime.now();
-    final limit = now.add(range);
-    return trainTime.isAfter(now) && trainTime.isBefore(limit);
-  } catch (e) {
-    return false;
-  }
-}
-
 class _MyHomePageState extends State<MyHomePage> {
   List<Map<String, dynamic>> _trains = [];
   bool _isLoading = false;
   Timer? _updateTimer;
+  User? _currentUser;
 
   // Liste des stations et des lignes
   final List<String> stations = ["Auber", "Châtelet", "La Défense", "Cergy le Haut", "Poissy", "Saint-Germain-en-Laye"];
@@ -74,7 +57,60 @@ class _MyHomePageState extends State<MyHomePage> {
   String? selectedArrivalStation;
   final String selectedLine = "RER A";
 
+  @override
+  void initState() {
+    super.initState();
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      setState(() {
+        _currentUser = user;
+      });
+    });
+    fetchTrains();
+    _updateTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      fetchTrains();
+    });
+    _checkCurrentUser();
+  }
+
+  @override
+  void dispose() {
+    _updateTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> updateApiUsage(int requestsMade) async {
+    if (_currentUser != null) {
+      final userDoc = FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid);
+
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final snapshot = await transaction.get(userDoc);
+
+        if (!snapshot.exists) {
+          // Si l'utilisateur n'existe pas dans Firestore, créer le document
+          transaction.set(userDoc, {
+            'apiUsage': requestsMade,
+            'apiLimit': 10000, // Exemple : limite de 100 requêtes
+          });
+        } else {
+          // Mise à jour de la consommation
+          final currentUsage = snapshot['apiUsage'] ?? 0;
+          transaction.update(userDoc, {'apiUsage': currentUsage + requestsMade});
+        }
+      });
+    }
+  }
+
+  Future<void> _checkCurrentUser() async {
+    setState(() {
+      _currentUser = FirebaseAuth.instance.currentUser;
+    });
+  }
+
   Future<void> fetchTrains() async {
+    if (_currentUser != null) {
+      await updateApiUsage(_trains.length);
+    }
+
     setState(() {
       _isLoading = true;
     });
@@ -114,6 +150,11 @@ class _MyHomePageState extends State<MyHomePage> {
                   })
                   .where((train) => isTrainWithinRange(train['expectedTime'] ?? '', const Duration(hours: 1, minutes: 30)))
                   .toList();
+
+              // Sauvegarde la consommation dans Firestore si un utilisateur est connecté
+              /*if (_currentUser != null) {
+                updateApiUsage(_trains.length);
+              }*/
             });
           } else {
             print('No departures found');
@@ -134,26 +175,32 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    fetchTrains();
-    _updateTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      fetchTrains();
-    });
-  }
-
-  @override
-  void dispose() {
-    _updateTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text(
+          widget.title,
+          style: TextStyle(
+            color: Colors.white,
+          ),
+        ),
         backgroundColor: Colors.deepPurple,
+        actions: [
+          IconButton(
+            icon: _currentUser == null
+                ? const Icon(
+                    Icons.login,
+                    color: Colors.white,
+                  )
+                : const Icon(
+                    Icons.account_circle,
+                    color: Colors.white,
+                  ),
+            onPressed: () {
+              Navigator.pushNamed(context, _currentUser == null ? '/auth' : '/profile');
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -230,5 +277,36 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
       ),
     );
+  }
+}
+
+// Fonctions de formatage
+String formatTime(String time) {
+  try {
+    final dateTime = DateTime.parse(time).toLocal();
+    return DateFormat('HH:mm').format(dateTime);
+  } catch (e) {
+    return "Inconnu";
+  }
+}
+
+bool isFutureTrain(String time) {
+  try {
+    final trainTime = DateTime.parse(time).toLocal();
+    final now = DateTime.now();
+    return trainTime.isAfter(now);
+  } catch (e) {
+    return false;
+  }
+}
+
+bool isTrainWithinRange(String time, Duration range) {
+  try {
+    final trainTime = DateTime.parse(time).toLocal();
+    final now = DateTime.now();
+    final limit = now.add(range);
+    return trainTime.isAfter(now) && trainTime.isBefore(limit);
+  } catch (e) {
+    return false;
   }
 }
