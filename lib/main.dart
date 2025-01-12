@@ -12,6 +12,7 @@ import 'package:navigoon/auth/auth_page.dart';
 import 'package:navigoon/auth/login_page.dart';
 import 'package:navigoon/auth/profile_page.dart';
 import 'package:navigoon/pages/disruptions_page.dart';
+import 'package:navigoon/pages/select_train_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +36,7 @@ class MyApp extends StatelessWidget {
         '/auth': (context) => const AuthPage(),
         '/login': (context) => const LoginPage(),
         '/profile': (context) => const ProfilePage(),
+        '/selectTrain': (context) => SelectTrainPage(),
       },
     );
   }
