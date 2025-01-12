@@ -20,6 +20,8 @@ class _DisruptionsPageState extends State<DisruptionsPage> {
 
   String? _selectedTag;
 
+  bool _isDescending = true; // Indique si le tri est descendant (plus récent > plus ancien)
+
   @override
   void initState() {
     super.initState();
@@ -114,6 +116,20 @@ class _DisruptionsPageState extends State<DisruptionsPage> {
     });
   }
 
+  void _sortDisruptionsByDate() {
+    setState(() {
+      _isDescending = !_isDescending; // Inverse l'état de tri
+
+      // Trie la liste des perturbations filtrées
+      _filteredDisruptions.sort((a, b) {
+        final dateA = DateTime.tryParse(a['lastUpdate'] ?? '') ?? DateTime.now();
+        final dateB = DateTime.tryParse(b['lastUpdate'] ?? '') ?? DateTime.now();
+
+        return _isDescending ? dateB.compareTo(dateA) : dateA.compareTo(dateB);
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -192,6 +208,16 @@ class _DisruptionsPageState extends State<DisruptionsPage> {
                       ),
                     ),
                   ),
+                // Ajout du bouton de tri
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: ElevatedButton.icon(
+                    onPressed: _sortDisruptionsByDate,
+                    icon: Icon(_isDescending ? Icons.arrow_downward : Icons.arrow_upward), // Icône selon l'ordre de tri
+                    label: Text(_isDescending ? 'Plus récentes -> Plus anciennes' : 'Plus anciennes -> Plus récentes'),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+                  ),
+                ),
                 Expanded(
                   child: _filteredDisruptions.isEmpty
                       ? const Center(
