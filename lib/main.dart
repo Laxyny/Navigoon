@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'dart:async';
@@ -109,6 +110,17 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Future<void> updateHomeScreenWidget(String destination, String expectedTime) async {
+    await HomeWidget.saveWidgetData<String>('destination', destination);
+    await HomeWidget.saveWidgetData<String>('expectedTime', expectedTime);
+
+    // Demandez au widget de se mettre à jour
+    await HomeWidget.updateWidget(
+      name: 'TrainWidgetProvider',
+      iOSName: 'TrainWidget',
+    );
+  }
+
   Future<void> fetchTrains() async {
     if (_currentUser != null) {
       await updateApiUsage(1);
@@ -133,25 +145,42 @@ class _MyHomePageState extends State<MyHomePage> {
         if (stopMonitoringDelivery != null && stopMonitoringDelivery.isNotEmpty) {
           final monitoredStopVisits = stopMonitoringDelivery[0]['MonitoredStopVisit'];
           if (monitoredStopVisits != null) {
-            setState(() {
-              _trains = monitoredStopVisits.map<Map<String, dynamic>>((visit) {
-                final journey = visit['MonitoredVehicleJourney'];
-                if (journey != null) {
-                  final destinationName = journey['DestinationName']?[0]?['value']?.toString() ?? 'Inconnu';
-                  final expectedTime = journey['MonitoredCall']?['ExpectedDepartureTime']?.toString() ?? 'Inconnu';
+            final List<Map<String, dynamic>> trains = monitoredStopVisits.map<Map<String, dynamic>>((visit) {
+              final journey = visit['MonitoredVehicleJourney'];
+              if (journey != null) {
+                final destinationName = journey['DestinationName']?[0]?['value']?.toString() ?? 'Inconnu';
+                final expectedTime = journey['MonitoredCall']?['ExpectedDepartureTime']?.toString() ?? 'Inconnu';
 
-                  return {
-                    'destination': destinationName,
-                    'expectedTime': expectedTime,
-                  };
-                }
                 return {
-                  'destination': 'Train inconnu',
-                  'expectedTime': 'Inconnu',
+                  'destination': destinationName,
+                  'expectedTime': expectedTime,
                 };
-              })
-                  //.where((train) => isTrainWithinRange(train['expectedTime'] ?? '', const Duration(hours: 1, minutes: 30)))
-                  .toList();
+              }
+              return {
+                'destination': 'Train inconnu',
+                'expectedTime': 'Inconnu',
+              };
+            }).toList();
+
+            // Filtrer les trains pour ne garder que le prochain
+            final now = DateTime.now();
+            final nextTrain = trains.firstWhere(
+              (train) {
+                try {
+                  final trainTime = DateTime.parse(train['expectedTime']).toLocal();
+                  return trainTime.isAfter(now);
+                } catch (e) {
+                  return false;
+                }
+              },
+              orElse: () => {'destination': 'Aucun train', 'expectedTime': 'Inconnu'},
+            );
+
+            // Sauvegarder le train le plus proche dans le widget
+            updateHomeScreenWidget(nextTrain['destination'], formatTime(nextTrain['expectedTime']));
+
+            setState(() {
+              _trains = trains;
             });
           }
         }

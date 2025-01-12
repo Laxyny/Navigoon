@@ -1,0 +1,45 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@drawable/widget_background">
+
+    <!-- Ligne contenant l'icône et la destination -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Icône de train -->
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/subway"
+            android:tint="#FFFFFF"
+            android:layout_marginEnd="8dp" />
+
+        <!-- Texte pour la destination -->
+        <TextView
+            android:id="@+id/destinationText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Destination : Inconnu"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:fontFamily="sans-serif-medium" />
+    </LinearLayout>
+
+    <!-- Texte pour l'heure -->
+    <TextView
+        android:id="@+id/expectedTimeText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Heure : Inconnu"
+        android:textColor="#FFFF99"
+        android:textSize="16sp"
+        android:fontFamily="sans-serif-medium"
+        android:layout_marginTop="4dp"
+        android:paddingStart="32dp" />
+</LinearLayout>
