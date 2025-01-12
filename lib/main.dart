@@ -10,6 +10,7 @@ import 'package:navigoon/api/api_usage_service.dart';
 import 'package:navigoon/auth/auth_page.dart';
 import 'package:navigoon/auth/login_page.dart';
 import 'package:navigoon/auth/profile_page.dart';
+import 'package:navigoon/pages/disruptions_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,8 +25,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Trains en temps réel',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
+      theme: ThemeData.dark().copyWith(
+        primaryColor: Colors.deepPurple,
+        scaffoldBackgroundColor: const Color(0xFF1D1D35),
       ),
       home: const MyHomePage(title: 'Trains en temps réel'),
       routes: {
@@ -52,11 +54,9 @@ class _MyHomePageState extends State<MyHomePage> {
   Timer? _updateTimer;
   User? _currentUser;
 
-  // Liste des stations et des lignes
   final List<String> stations = ["Auber", "Châtelet", "La Défense", "Cergy le Haut", "Poissy", "Saint-Germain-en-Laye"];
   String selectedDepartureStation = "Auber";
   String? selectedArrivalStation;
-  final String selectedLine = "RER A";
 
   @override
   void initState() {
@@ -91,13 +91,11 @@ class _MyHomePageState extends State<MyHomePage> {
         final snapshot = await transaction.get(userDoc);
 
         if (!snapshot.exists) {
-          // Si l'utilisateur n'existe pas dans Firestore, créer le document
           transaction.set(userDoc, {
             'apiUsage': 0,
-            'apiLimit': 10000, // Exemple : limite de 100 requêtes
+            'apiLimit': 10000,
           });
         } else {
-          // Mise à jour de la consommation
           final currentUsage = snapshot['apiUsage'] ?? 0;
           transaction.update(userDoc, {'apiUsage': currentUsage + requestsMade});
         }
@@ -136,34 +134,27 @@ class _MyHomePageState extends State<MyHomePage> {
           final monitoredStopVisits = stopMonitoringDelivery[0]['MonitoredStopVisit'];
           if (monitoredStopVisits != null) {
             setState(() {
-              _trains = monitoredStopVisits
-                  .map<Map<String, dynamic>>((visit) {
-                    final journey = visit['MonitoredVehicleJourney'];
-                    if (journey != null) {
-                      final destinationName = journey['DestinationName']?[0]?['value']?.toString() ?? 'Inconnu';
-                      final expectedTime = journey['MonitoredCall']?['ExpectedDepartureTime']?.toString() ?? 'Inconnu';
+              _trains = monitoredStopVisits.map<Map<String, dynamic>>((visit) {
+                final journey = visit['MonitoredVehicleJourney'];
+                if (journey != null) {
+                  final destinationName = journey['DestinationName']?[0]?['value']?.toString() ?? 'Inconnu';
+                  final expectedTime = journey['MonitoredCall']?['ExpectedDepartureTime']?.toString() ?? 'Inconnu';
 
-                      return {
-                        'destination': destinationName,
-                        'expectedTime': expectedTime,
-                      };
-                    }
-                    return {
-                      'destination': 'Train inconnu',
-                      'expectedTime': 'Inconnu',
-                    };
-                  })
-                  .where((train) => isTrainWithinRange(train['expectedTime'] ?? '', const Duration(hours: 1, minutes: 30)))
+                  return {
+                    'destination': destinationName,
+                    'expectedTime': expectedTime,
+                  };
+                }
+                return {
+                  'destination': 'Train inconnu',
+                  'expectedTime': 'Inconnu',
+                };
+              })
+                  //.where((train) => isTrainWithinRange(train['expectedTime'] ?? '', const Duration(hours: 1, minutes: 30)))
                   .toList();
             });
-          } else {
-            print('No departures found');
           }
-        } else {
-          print('No StopMonitoringDelivery found');
         }
-      } else {
-        print('Failed to load trains: ${response.statusCode}');
       }
     } catch (e) {
       print('Error: $e');
@@ -178,26 +169,20 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.title,
-          style: TextStyle(
-            color: Colors.white,
-          ),
-        ),
         backgroundColor: Colors.deepPurple,
+        title: Text(widget.title),
         actions: [
           IconButton(
-            icon: _currentUser == null
-                ? const Icon(
-                    Icons.login,
-                    color: Colors.white,
-                  )
-                : const Icon(
-                    Icons.account_circle,
-                    color: Colors.white,
-                  ),
+            icon: _currentUser == null ? const Icon(Icons.login) : const Icon(Icons.account_circle),
             onPressed: () {
               Navigator.pushNamed(context, _currentUser == null ? '/auth' : '/profile');
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh), // Bouton pour rafraîchir
+            tooltip: 'Rafraîchir la liste des trains',
+            onPressed: () {
+              fetchTrains(); // Appelle la fonction pour rafraîchir manuellement
             },
           ),
         ],
@@ -205,8 +190,9 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(16.0),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DropdownButton<String>(
                   value: selectedDepartureStation,
@@ -242,61 +228,55 @@ class _MyHomePageState extends State<MyHomePage> {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              'Résultats: ${_trains.length}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _trains.isEmpty
-                    ? const Center(child: Text('Aucun train disponible.'))
-                    : ListView.builder(
-                        itemCount: _trains.length,
-                        itemBuilder: (context, index) {
-                          final train = _trains[index];
-                          return Card(
-                            margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-                            child: ListTile(
-                              leading: Icon(Icons.train, color: Colors.deepPurple),
-                              title: Text(
-                                'Destination : ${train['destination']}',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Text(
-                                'Heure : ${formatTime(train['expectedTime'])}',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                : ListView.builder(
+                    itemCount: _trains.length,
+                    itemBuilder: (context, index) {
+                      final train = _trains[index];
+                      return Card(
+                        margin: const EdgeInsets.all(8.0),
+                        color: const Color(0xFF2E2C4D),
+                        child: ListTile(
+                          leading: const Icon(Icons.train, color: Colors.white),
+                          title: Text(
+                            'Destination : ${train['destination']}',
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          subtitle: Text(
+                            'Heure : ${formatTime(train['expectedTime'])}',
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        child:
+            //Aficher une icone au centre
+            Icon(Icons.warning_amber, color: Colors.white),
+        onPressed: () {
+          // Naviguer vers la page des disruptions
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const DisruptionsPage()),
+          );
+        },
       ),
     );
   }
 }
 
-// Fonctions de formatage
 String formatTime(String time) {
   try {
     final dateTime = DateTime.parse(time).toLocal();
     return DateFormat('HH:mm').format(dateTime);
   } catch (e) {
     return "Inconnu";
-  }
-}
-
-bool isFutureTrain(String time) {
-  try {
-    final trainTime = DateTime.parse(time).toLocal();
-    final now = DateTime.now();
-    return trainTime.isAfter(now);
-  } catch (e) {
-    return false;
   }
 }
 

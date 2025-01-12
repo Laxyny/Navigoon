@@ -106,7 +106,7 @@ class ProfilePage extends StatelessWidget {
                           value: value,
                           strokeWidth: 12,
                           backgroundColor: Colors.grey[300],
-                          color: Colors.deepPurple,
+                          color: Colors.deepOrange,
                         );
                       },
                     ),
@@ -119,19 +119,19 @@ class ProfilePage extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: Colors.deepPurple,
+                          color: Colors.yellow,
                         ),
                       ),
                       Text(
                         '$usage / $limit',
                         style: const TextStyle(
                           fontSize: 14,
-                          color: Colors.black54,
+                          color: Colors.white,
                         ),
                       ),
                       const Text(
                         'Utilisé',
-                        style: TextStyle(fontSize: 16, color: Colors.black54),
+                        style: TextStyle(fontSize: 16, color: Colors.white),
                       ),
                     ],
                   ),
@@ -180,7 +180,7 @@ class ProfilePage extends StatelessWidget {
                   return Text(
                     '${value.toInt()}',
                     style: const TextStyle(
-                      color: Colors.black54,
+                      color: Colors.white,
                       fontSize: 12,
                     ),
                   );
@@ -196,7 +196,7 @@ class ProfilePage extends StatelessWidget {
                   return Text(
                     day,
                     style: const TextStyle(
-                      color: Colors.black54,
+                      color: Colors.white,
                       fontSize: 12,
                     ),
                   );
@@ -211,12 +211,12 @@ class ProfilePage extends StatelessWidget {
                 (index) => FlSpot(index.toDouble(), usageData[index]),
               ),
               isCurved: true,
-              color: Colors.deepPurple,
+              color: Colors.yellow,
               barWidth: 3,
               dotData: FlDotData(show: true),
               belowBarData: BarAreaData(
                 show: true,
-                color: Colors.deepPurple.withOpacity(0.2),
+                color: Colors.orange.withOpacity(0.2),
               ),
             ),
           ],
