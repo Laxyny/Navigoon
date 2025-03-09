@@ -39,10 +39,13 @@ dependencies:
   cloud_firestore: ^5.6.1
   firebase_auth: ^5.4.0
   firebase_core: ^3.10.0
+  firebase_messaging: ^15.2.4
   google_sign_in: ^6.2.2
   fl_chart: ^0.70.1
   url_launcher: ^6.1.9
   home_widget: ^0.7.0
+  flutter_local_notifications: ^18.0.1
+  #workmanager: ^0.5.2 # A MODIF ERREURS
 
 dev_dependencies:
   flutter_test:

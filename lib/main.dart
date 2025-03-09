@@ -12,12 +12,51 @@ import 'package:navigoon/auth/auth_page.dart';
 import 'package:navigoon/auth/login_page.dart';
 import 'package:navigoon/auth/profile_page.dart';
 import 'package:navigoon/pages/disruptions_page.dart';
+//import 'package:navigoon/pages/distuptions_test.dart';
 import 'package:navigoon/pages/select_train_page.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:navigoon/services/notification_service.dart';
+//import 'package:workmanager/workmanager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  /*await Workmanager().initialize(
+    callbackDispatcher, // The top-level function, a.k.a. callbackDispatcher
+  );*/
+
+  //chedulePeriodicTask();
+
+  final notificationService = NotificationService();
+  await notificationService.initNotifications();
+
   runApp(const MyApp());
+}
+
+/*void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    switch (task) {
+      case 'fetchDisruptions':
+        await fetchAndNotifyDisruptions();
+        break;
+    }
+    return Future.value(true);
+  });
+}
+
+void schedulePeriodicTask() {
+  Workmanager().registerPeriodicTask(
+    "1",
+    "fetchDisruptions",
+    frequency: Duration(hours: 1), // Par exemple, toutes les heures
+  );
+}*/
+
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print("Handling a background message: ${message.messageId}");
 }
 
 class MyApp extends StatelessWidget {
@@ -52,6 +91,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  final NotificationService _notificationService = NotificationService();
   List<Map<String, dynamic>> _trains = [];
   bool _isLoading = false;
   Timer? _updateTimer;
@@ -60,6 +100,8 @@ class _MyHomePageState extends State<MyHomePage> {
   final List<String> stations = ["Auber", "Châtelet", "La Défense", "Cergy le Haut", "Poissy", "Saint-Germain-en-Laye"];
   String selectedDepartureStation = "Auber";
   String? selectedArrivalStation;
+
+  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -74,6 +116,21 @@ class _MyHomePageState extends State<MyHomePage> {
       fetchTrains();
     });
     _checkCurrentUser();
+
+    FirebaseMessaging.instance.getToken().then((token) {
+      print("Firebase Messaging Token: $token");
+      FirebaseFirestore.instance.collection('users').doc(_currentUser!.uid).update({'fcmToken': token});
+    });
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print('Got a message whilst in the foreground!');
+      print('Message data: ${message.data}');
+
+      if (message.notification != null) {
+        print('Message also contained a notification: ${message.notification}');
+        _notificationService.showNotification(message.notification!.title ?? 'Notification', message.notification!.body ?? '');
+      }
+    });
   }
 
   @override
@@ -196,29 +253,12 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  List<Widget> _pages = [];
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.deepPurple,
-        title: Text(widget.title),
-        actions: [
-          IconButton(
-            icon: _currentUser == null ? const Icon(Icons.login) : const Icon(Icons.account_circle),
-            onPressed: () {
-              Navigator.pushNamed(context, _currentUser == null ? '/auth' : '/profile');
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh), // Bouton pour rafraîchir
-            tooltip: 'Rafraîchir la liste des trains',
-            onPressed: () {
-              fetchTrains(); // Appelle la fonction pour rafraîchir manuellement
-            },
-          ),
-        ],
-      ),
-      body: Column(
+    _pages = [
+      Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -286,6 +326,32 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ],
       ),
+      Center(
+        child: Text('Plans bientot disponibles'),
+      )
+    ];
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.deepPurple,
+        title: Text(widget.title),
+        actions: [
+          IconButton(
+            icon: _currentUser == null ? const Icon(Icons.login) : const Icon(Icons.account_circle),
+            onPressed: () {
+              Navigator.pushNamed(context, _currentUser == null ? '/auth' : '/profile');
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh), // Bouton pour rafraîchir
+            tooltip: 'Rafraîchir la liste des trains',
+            onPressed: () {
+              fetchTrains(); // Appelle la fonction pour rafraîchir manuellement
+            },
+          ),
+        ],
+      ),
+      body: _pages[_currentIndex],
       floatingActionButton: FloatingActionButton(
         child:
             //Aficher une icone au centre
@@ -297,6 +363,19 @@ class _MyHomePageState extends State<MyHomePage> {
             MaterialPageRoute(builder: (context) => const DisruptionsPage()),
           );
         },
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
+          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Plans'),
+        ],
       ),
     );
   }

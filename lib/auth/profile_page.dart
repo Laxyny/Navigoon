@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -53,23 +54,77 @@ class ProfilePage extends StatelessWidget {
                     const SizedBox(height: 20),
                     _buildApiUsageCard(user.uid),
                     const SizedBox(height: 20),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                    Center(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.deepPurple,
+                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                        ),
+                        onPressed: () async {
+                          await FirebaseAuth.instance.signOut();
+                          await GoogleSignIn().signOut();
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Déconnexion'),
                       ),
-                      onPressed: () async {
-                        await FirebaseAuth.instance.signOut();
-                        await GoogleSignIn().signOut();
-                        Navigator.pop(context);
-                      },
-                      child: const Text('Déconnexion'),
                     ),
+                    //Faire un autre bouton sur le coté pour pouvoir supprimer son compte
+                    const SizedBox(height: 20),
+                    Center(
+                      child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.deepPurple,
+                            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                          ),
+                          onPressed: () async {
+                            //Appeler une fonction pour supprimer le compte mais avant mettre un popup pour être sur de supprimer son compte
+                            await showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: const Text('Supprimer le compte'),
+                                  content: const Text('Voulez-vous vraiment supprimer votre compte ?'),
+                                  actions: <Widget>[
+                                    TextButton(
+                                        onPressed: () async {
+                                          await _deleteAccount(context);
+                                          Navigator.pop(context);
+                                        },
+                                        child: const Text('Oui')),
+                                    TextButton(
+                                        onPressed: () async {
+                                          Navigator.pop(context);
+                                        },
+                                        child: const Text('Non')),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                          child: const Text('Supprimer son compte')),
+                    )
                   ],
                 ),
               ),
             ),
     );
+  }
+
+  //Fonction pour supprier son compte
+  Future<void> _deleteAccount(BuildContext context) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await user.delete();
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).delete();
+        await GoogleSignIn().signOut();
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de la suppression du compte: $e')),
+      );
+    }
   }
 
   Widget _buildApiUsageCard(String userId) {

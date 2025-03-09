@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:navigoon/services/notification_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 
@@ -21,6 +22,14 @@ class _DisruptionsPageState extends State<DisruptionsPage> {
   String? _selectedTag;
 
   bool _isDescending = true; // Indique si le tri est descendant (plus récent > plus ancien)
+
+  Future<void> sendDisruptionNotification(String title, String message) async {
+    final notificationService = NotificationService();
+    await notificationService.showNotification(
+      'Perturbation',
+      'Titre: $title, Message: $message',
+    );
+  }
 
   @override
   void initState() {
